@@ -1,16 +1,22 @@
 <?php
 session_start();
 
+// 1. Establish and check connection
 $connection = new mysqli("localhost", "root", "", "paymedia");
 
-$error = $connection->connect_error;
+if ($connection->connect_error) {
+    die("Connection failed: " . $connection->connect_error);
+}
+
+$email = ""; // Initialize to prevent undefined variable notices
+
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
-    $name = $_POST["name"];
     $email = $_POST["email"];
     $password = $_POST["password"];
 
-    if (empty($name) || empty($email) || empty($password)) {
-        echo "Please fill in all fields.";
+    // Removed the 'name' requirement for login logic
+    if (empty($email) || empty($password)) {
+        $error_msg = "Please fill in all fields.";
     } else {
         $stmt = $connection->prepare("SELECT * FROM users WHERE email = ?");
         $stmt->bind_param("s", $email);
@@ -20,15 +26,19 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         if ($result->num_rows > 0) {
             $user = $result->fetch_assoc();
             if (password_verify($password, $user["password"])) {
-                $_SESSION["user_id"] = $user["id"];
-                $_SESSION["user_name"] = $user["name"];
-                header("Location: dashboard.php");
+                
+                // Regenerate session ID for security
+                session_regenerate_id(true);
+                
+                $_SESSION["editor_id"] = $editor["id"];
+                $_SESSION["editor_company_name"] = $editor["company_name"];
+                header("Location: index.php");
                 exit();
             } else {
-                echo "Invalid password.";
+                $error_msg = "Invalid password.";
             }
         } else {
-            echo "No user found with that email.";
+            $error_msg = "No user found with that email.";
         }
     }
 }
@@ -38,64 +48,67 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title> PayMedia</title>
-    <link rel="stylesheet" href="style.css">
-     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-EVSTQN3/azprG1Anm3QDgpJLIm9Nao0Yz1ztcQTwFspd3yD65VohhpuuCOmLASjC" crossorigin="anonymous">
-     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet" />
+    <title>PayMedia Login</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css" rel="stylesheet">
+    <style>
+        body { background-color: #f8f9fa; }
+        .login-container { max-width: 450px; margin-top: 100px; }
+        .input-group-text { cursor: pointer; }
+    </style>
 </head>
-<style>
-    body {
-        background-color: #f8f9fa;
-    }
-    .container {
-        margin-top: 100px;
-    }
-    .form-label {
-        font-weight: bold;
-    }
-    .btn-primary {
-        width: 100%;
-    }
-    .card {
-        margin-top: 20px;
-    }
-</style>
 <body>
-    <div class="card">
-        <div class="card-body">
-            <h5 class="card-title">Welcome to PayMedia</h5>
-            <p class="card-text">Please log in to access your dashboard and manage your sales and products.</p>
-            <div class="container">
-        <div class="row justify-content-center">
-            <div class="col-md-6">
-                <h1 class="text-center">Login</h1>
-                <form method="POST" action="">
-                    <div class="mb-3">
-                        <label for="name" class="form-label">Name</label>
-                        <input type="text" class="form-control" id="name" name="name" required>
-                    </div>
-                    <div class="mb-3">
-                <label class="form-label fw-semibold">Email Address</label>
-                <input type="email" name="email" class="form-control" 
-                       value="<?= htmlspecialchars($email ?? '') ?>" required>
-            </div>
-                    <div class="mb-3">
-                <label class="form-label small fw-semibold">Password</label>
-                <div class="input-group">
-                    <input type="password" name="password" id="password" class="form-control" placeholder="Min. 6 characters" required>
-                    <span class="input-group-text" id="togglePassword">
-                        <i class='bx bx-show'></i>
-                    </span>
+
+<div class="container login-container">
+    <div class="card shadow-sm">
+        <div class="card-body p-4">
+            <h3 class="text-center mb-3">Login</h3>
+            <p class="text-muted text-center small mb-4">Welcome to PayMedia. Please log in to manage your dashboard.</p>
+            
+            <?php if (!empty($error_msg)): ?>
+                <div class="alert alert-danger py-2 small"><?= htmlspecialchars($error_msg) ?></div>
+            <?php endif; ?>
+
+            <form method="POST" action="">
+                <div class="mb-3">
+                    <label class="form-label fw-semibold small">Email Address</label>
+                    <input type="email" name="email" class="form-control" value="<?= htmlspecialchars($email) ?>" required>
                 </div>
-            </div>
-                    <button type="submit" class="btn btn-primary">Login</button>
-                </form>
-            </div>
+                
+                <div class="mb-4">
+                    <label class="form-label fw-semibold small">Password</label>
+                    <div class="input-group">
+                        <input type="password" name="password" id="password" class="form-control" placeholder="Min. 6 characters" required>
+                        <span class="input-group-text" id="togglePassword">
+                            <i class='bx bx-show' id="toggleIcon"></i>
+                        </span>
+                    </div>
+                </div>
+                
+                <button type="submit" class="btn btn-primary w-100">Login</button>
+                If you don't have an account, <a href="register.php">register here</a>.
+            </form>
         </div>
     </div>
-        </div>
-    </div>
-    
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/js/bootstrap.bundle.min.js" integrity="sha384-MrcW6ZMFYlzcLA8Nl+NtUVF0sA7MsXsP1UyJoMp4YLEuNSfAP+JcXn/tWtIaxVXM" crossorigin="anonymous"></script>
+</div>
+
+<script>
+    // Functional Password Toggle Script
+    const togglePassword = document.querySelector('#togglePassword');
+    const password = document.querySelector('#password');
+    const toggleIcon = document.querySelector('#toggleIcon');
+
+    togglePassword.addEventListener('click', function () {
+        const type = password.getAttribute('type') === 'password' ? 'text' : 'password';
+        password.setAttribute('type', type);
+        
+        // Toggle icon classes
+        if (type === 'text') {
+            toggleIcon.classList.replace('bx-show', 'bx-hide');
+        } else {
+            toggleIcon.classList.replace('bx-hide', 'bx-show');
+        }
+    });
+</script>
 </body>
 </html>
